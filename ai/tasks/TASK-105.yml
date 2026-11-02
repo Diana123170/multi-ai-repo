@@ -1,0 +1,19 @@
+id: TASK-105
+title: 接入 HTML 原型检查与 handoff 交付结构
+track: formal
+agent: manual
+base: main
+branch: feat/TASK-105
+allowed_paths:
+  - Makefile
+  - scripts/**
+  - handoff/**
+  - prototypes/checkout-redesign/**
+forbidden_paths: []
+allow_protected: true
+acceptance:
+  - make check 通过，能检查 prototypes/*/index.html
+  - handoff 模板与说明就位
+notes: |
+  把原型检查从 npm 构建改为单文件 HTML 校验，
+  并加入 handoff 交付快照结构。属于基础设施调整。
