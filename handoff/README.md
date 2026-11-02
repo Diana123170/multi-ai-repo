@@ -7,17 +7,22 @@
 
 ```
 handoff/<slug>/
-├── v1/
-│   └── index.html      # 冻结的 HTML 快照
+├── v1/                 # 冻结的整个原型目录（所有 HTML + 资源）
+│   ├── 首页.html
+│   ├── 订单列表.html
+│   └── assets/...
 ├── handoff.yaml        # 交接元数据
 └── README.md           # 给开发看的说明
 ```
+
+> 一个原型可能是多个 HTML + JS/CSS/图片。**复制整个 `prototypes/<slug>/` 目录**，
+> 不要只复制 `index.html`，否则页面之间的相对链接会断。
 
 ## 交付流程
 
 1. 在 `proto/<slug>` 分支上把 `prototype.yaml` 改成 `approved`，填写 `approved_by` / `approved_at`
 2. 新建分支 `handoff/<slug>`
-3. 复制 `prototypes/<slug>/index.html` 到 `handoff/<slug>/v1/index.html`
+3. 把整个 `prototypes/<slug>/` 复制到 `handoff/<slug>/v1/`（保留目录结构）
 4. 复制 `handoff/_template/` 里的两个文件，填好
 5. 提 PR 到 `main`
 6. 合并后，开发从 `handoff/<slug>/v1/index.html` 取

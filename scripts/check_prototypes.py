@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""检查 prototypes/ 下的单文件 HTML 原型。
+"""检查 prototypes/ 下的 HTML 原型。
 
-只依赖 Python 标准库，CI 里直接跑，不需要 npm / pip install。
+一个原型可以是一个 HTML，也可以是**一个目录里的多个 HTML + 资源文件**，
+文件名可以是中文。只依赖 Python 标准库，CI 里直接跑。
 
 规则：
 - 每个原型目录必须有 prototype.yaml，status 合法
-- status = designing 时，可以还没有 index.html（只警告）
-- status = validating / approved / delivered 时，必须有 index.html
-- index.html 要有 doctype、html/head/body/title，且不能是空壳
+- status = designing 时，可以还没有 HTML（只警告）
+- status = validating / approved / delivered 时，目录里至少要有一个 .html
+- 如果 manifest 里写了 `entry: 首页.html`，这个文件必须存在
+- 每个 HTML 都要有 doctype、html/head/body/title，且不能是空壳
 - React / antd 引用只给警告，不阻断
 """
 from __future__ import annotations
@@ -21,20 +23,21 @@ ALLOWED_STATUS = {"designing", "validating", "approved", "delivered", "archived"
 HTML_REQUIRED_STATUS = {"validating", "approved", "delivered"}
 
 
-def read_status(manifest: Path) -> str | None:
+def read_field(manifest: Path, key: str) -> str | None:
     if not manifest.exists():
         return None
+    pattern = re.compile(rf"\s*{re.escape(key)}:\s*(.+)")
     for line in manifest.read_text(encoding="utf-8").splitlines():
-        match = re.match(r"\s*status:\s*(\S+)", line)
+        match = pattern.match(line)
         if match:
-            return match.group(1).strip("'\"")
+            return match.group(1).strip().strip("'\"")
     return None
 
 
-def check_html(index: Path) -> tuple[list[str], list[str]]:
+def check_html(path: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
-    text = index.read_text(encoding="utf-8", errors="replace")
+    text = path.read_text(encoding="utf-8", errors="replace")
     lower = text.lower()
 
     if "<!doctype html" not in lower:
@@ -66,8 +69,10 @@ def main() -> int:
 
     failed = False
     for directory in dirs:
-        status = read_status(directory / "prototype.yaml")
-        index = directory / "index.html"
+        manifest = directory / "prototype.yaml"
+        status = read_field(manifest, "status")
+        entry = read_field(manifest, "entry")
+        html_files = sorted(p for p in directory.rglob("*.html") if p.is_file())
         errors: list[str] = []
         warnings: list[str] = []
 
@@ -76,15 +81,20 @@ def main() -> int:
         elif status not in ALLOWED_STATUS:
             errors.append(f"status 不合法：{status}")
 
-        if not index.exists():
+        if not html_files:
             if status == "designing":
-                warnings.append("还没有 index.html（designing 阶段允许）")
+                warnings.append("还没有 HTML 文件（designing 阶段允许）")
             else:
-                errors.append("缺少 index.html")
-        else:
-            html_errors, html_warnings = check_html(index)
-            errors.extend(html_errors)
-            warnings.extend(html_warnings)
+                errors.append("目录里没有任何 .html 文件")
+
+        if entry and not (directory / entry).exists():
+            errors.append(f"entry 指向的文件不存在：{entry}")
+
+        for html in html_files:
+            html_errors, html_warnings = check_html(html)
+            rel = html.relative_to(directory)
+            errors.extend(f"{rel}: {item}" for item in html_errors)
+            warnings.extend(f"{rel}: {item}" for item in html_warnings)
 
         if errors:
             failed = True
@@ -92,7 +102,8 @@ def main() -> int:
             for item in errors:
                 print(f"   - {item}")
         else:
-            print(f"✅ {directory.name}（{status}）")
+            count = f"{len(html_files)} 个 HTML" if html_files else "暂无 HTML"
+            print(f"✅ {directory.name}（{status}，{count}）")
         for item in warnings:
             print(f"   ⚠️  {item}")
 

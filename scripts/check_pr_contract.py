@@ -39,8 +39,14 @@ def load_yaml(path: Path) -> dict:
 
 
 def run_git(root: Path, *args: str) -> str:
+    # core.quotePath=false：否则中文文件名会被输出成 "\344\270\255..." 这种转义，
+    # 路径匹配会全部失效。
     return subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+        ["git", "-c", "core.quotePath=false", *args],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout.strip()
 
 

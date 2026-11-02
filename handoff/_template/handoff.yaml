@@ -2,6 +2,9 @@
 prototype: your-prototype
 version: 1
 
+# 入口页（相对 v1/ 的路径），没有固定入口就留空
+entry: 首页.html
+
 # in-development | ready-for-qa | released | on-hold
 status: in-development
 

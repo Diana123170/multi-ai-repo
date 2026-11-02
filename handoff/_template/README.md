@@ -2,7 +2,8 @@
 
 ## 原型
 
-- 快照：`v1/index.html`
+- 快照：`v1/`（整个原型目录，含所有 HTML 和资源）
+- 入口页：见 `handoff.yaml` 的 `entry`
 - 原始目录：`prototypes/<slug>/`
 - 批准人 / 日期：
 
