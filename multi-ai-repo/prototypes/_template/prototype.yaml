@@ -1,0 +1,29 @@
+# 原型的身份证。复制到 prototypes/<slug>/prototype.yaml 后填写。
+name: your-prototype
+title: 一句话说明这个原型在验证什么
+
+# designing | validating | approved | promoted | archived
+status: designing
+
+# 人类 owner，负责决定这个原型的生死
+owner: your-name
+
+# 参与开发的 AI 标识，和 PR 里的 Agent: 保持一致
+agents:
+  - claude-code-01
+
+created: 2026-01-01
+
+# 到期日。到期后 housekeeping 会提醒你续期或归档
+expires: 2026-01-31
+
+# 转正后落到哪个正式目录，必须位于 apps/ packages/ services/ 之下
+target: apps/your-app
+
+# 以下字段在评审通过后填写
+# approved_by: reviewer-name
+# approved_at: 2026-01-20
+# decision_adr: docs/adr/0002-your-prototype.md
+
+notes: |
+  想验证什么、明确不做什么、相关 issue 链接。

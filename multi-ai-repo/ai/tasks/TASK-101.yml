@@ -1,0 +1,19 @@
+id: TASK-101
+title: 结算页接入优惠券试算接口
+track: formal
+agent: claude-code-01
+base: main
+branch: feat/TASK-101
+allowed_paths:
+  - apps/checkout/**
+  - packages/payments/**
+forbidden_paths:
+  - apps/billing/**
+allow_protected: false
+acceptance:
+  - 结算页调用 /coupons/preview，命中与不命中都有测试
+  - 不改动计费模块
+  - make check 通过
+notes: |
+  接口契约见 packages/payments/README.md。
+  优惠券不可用时不阻断下单，只展示提示。
