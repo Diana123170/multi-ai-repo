@@ -1,117 +1,161 @@
-# AGENTS.md — 多 AI 协作准则
+# AGENTS.md — 本仓库的 AI 工作规则
 
-> 本文件是本仓库所有 AI 代理的行为准则。开工前必须完整阅读。
-> Claude Code 通过 `CLAUDE.md` 引入本文件；其他工具请把本文件放进系统提示或首轮上下文。
+> 你是这个仓库里的 AI 协作者。开工前完整读一遍，按这里的规则做。
+>
+> 这个仓库只放 **HTML 交互原型**（React + Ant Design）。正式开发由开发团队在别的仓库完成。
+> 你的产出不是生产代码，是**可以被评审、被交付的交互原型**。
 
-## 你在什么环境里工作
+## 0. 30 秒了解
 
-这个仓库同时有多个 AI 和人参与，你的产出会和别人的改动合并到同一条主干。
-所以比「写得好」更重要的是：**边界清晰、可审查、可回滚**。
+| 位置 | 是什么 | 你能动吗 |
+|---|---|---|
+| `prototypes/<slug>/` | 一个功能的原型，可以有多个 HTML + CSS/JS/图片 | ✅ 只能动你负责的 `<slug>` |
+| `proto/<slug>` | 这个原型的集成分支，受保护 | ❌ 只能通过 PR 合入 |
+| `ptask/<slug>/<TASK-ID>` | 你的工作分支 | ✅ 只在这里提交 |
+| `handoff/<slug>/vN/` | 定稿后冻结给开发的快照 | ❌ 不要动 |
+| `ai/tasks/` | 任务契约 | ❌ 只有 Planner 能写 |
+| `scripts/check_pr_contract.py` | CI 用来检查 PR 边界的脚本 | ❌ 不要改 |
 
-## 开工前检查单
+**你的工作 = 在一条 `ptask/<slug>/<TASK-ID>` 分支上，改 `prototypes/<slug>/` 里的文件，然后 PR 到 `proto/<slug>`。**
 
-1. 读 `ai/policy.yml`，确认轨道规则。
-2. 读 `ai/tasks/<TASK-ID>.yml`，确认 `allowed_paths`、`forbidden_paths`、验收标准。
-3. 运行 `scripts/ai-bootstrap.sh <TASK-ID>`（同步主干 + 建分支 + 设置提交模板）。
-4. 跑一次 `gh pr list --state open`，看有没有人正在改同一批文件。
+## 1. 开工前（一步都不能省）
 
-任何一步发现冲突，**停下来问**，不要自作主张。
+1. 读 `prototypes/<slug>/prototype.yaml`：
+   - `status` 必须是 `designing` 或 `validating`
+   - `status` 已经是 `approved` / `delivered` / `archived` → **停下**，不要再改
+   - `agents` 里应该有你的标识；没有就让 Planner 加
+   - `entry` 是入口页，比如 `首页.html`
+2. 看有没有人正在改同一个原型：
 
-## 硬性规则（违反会被 CI 拦截）
+   ```bash
+   gh pr list --state open --base proto/<slug>
+   ```
 
-### R1 只在自己的分支提交
+   有开放 PR 时，先看它改了哪些页面，避免撞车。
 
-- 分支名必须等于任务文件的 `branch:` 字段。
-- 禁止 push `main`、`proto/*`、`promote/*`。
-- 禁止对共享分支 force push。自己的任务分支可以 force，但推送前先 `git fetch`。
+3. 建分支（从集成分支切，不是从 main）：
 
-### R2 只改 allowed_paths 内的文件
+   ```bash
+   git fetch origin
+   git switch -c ptask/<slug>/<TASK-ID> origin/proto/<slug>
+   ```
 
-- 边界不是建议，`pr-guard` 会逐个文件校验。
-- 不碰 `forbidden_paths`。
-- 不碰 `.github/`、`ai/`、`scripts/`、`docs/adr/`（除非任务显式写了 `allow_protected: true`）。
-- 正式轨不碰 `prototypes/`；原型轨不碰 `apps/`、`packages/`、`services/`。
+4. 确认分支名格式：`ptask/<slug>/<TASK-ID>`
 
-### R3 一个任务一个 PR
+   - ❌ 不要用 `proto/<slug>/<TASK-ID>`：Git 不允许一个名字同时是分支和目录
+   - ❌ 不要直接推 `proto/<slug>`
+   - ❌ 不要从 `main` 切分支做原型
 
-- 正式轨 ≤ 400 行改动、≤ 30 个文件；原型轨 ≤ 800 行。
-- 超了就拆任务，不要硬塞。大 PR 没人能审，也最容易撞车。
+## 2. 你能改什么
 
-### R4 提交信息必须带 trailer
+只允许改：
 
 ```
-feat(checkout): 接入优惠券试算
+prototypes/<slug>/**
+```
+
+不能改：
+
+- `prototypes/<其他 slug>/**` —— 别人的原型
+- `handoff/**` —— 交付快照，由人确认
+- `ai/**`、`scripts/**`、`.github/**`、`Makefile` —— 基础设施
+- `docs/**` —— 要改文档先问人
+- `prototype.yaml` 的 `status` —— 只有人或 Planner 能标 `approved`
+
+越界会被 `pr-guard` 直接拒绝。
+
+## 3. 多 AI 同时改同一个原型
+
+同一个原型可能有好几个 AI 同时在改。按这些规则做：
+
+1. **一个 PR 只做一件事**，控制在半天工作量内。
+2. **PR 描述写清范围**：只改了哪些页面、哪些区块。
+3. **不要重排整个文件的格式**，不要全文件替换。
+4. **只改你负责的页面**。需要动别人的页面，先在 PR 里问。
+5. **频繁 rebase**，不要攒三天再合：
+
+   ```bash
+   git fetch origin
+   git rebase origin/proto/<slug>
+   ```
+
+### 冲突处理
+
+| 情况 | 怎么做 |
+|---|---|
+| 冲突在你负责的页面 | 自己解，保留双方意图，解完在浏览器里点一遍 |
+| 冲突在别人负责的页面 | `git rebase --abort`，在 PR 里写「待确认」并 @ 人 |
+| 同一段被两个 AI 改 | 串行：先合一个，另一个 rebase 后再提 |
+| 冲突在锁文件/自动生成文件 | 不要手改，重新生成 |
+
+禁止用 `git checkout --ours` / `--theirs` 整文件覆盖，那会静默丢掉别人的改动。
+
+## 4. 原型文件规则
+
+- **文件名可以用中文**：`首页.html`、`订单列表.html`、`详情页.html`
+- 一个原型可以有多个 HTML；入口页写在 `prototype.yaml` 的 `entry`
+- 页面之间用**相对路径**引用，保证整个目录拷走后还能打开
+- React / antd 用 CDN 时**固定版本**，不要用 `@latest`
+- 用假数据，不接真实接口，不写真实用户信息
+- 不提交密钥、token、内网地址、个人绝对路径
+- 图片放在 `assets/` 下，不要提交几 MB 的截图
+
+## 5. 提交与 PR
+
+提交信息：
+
+```
+feat(proto): 会员中心-首页布局
 
 Agent: claude-code-01
-Task: TASK-101
+Task: TASK-201
 ```
 
-- `Agent:` 写你的代理标识，同一台机器多个 AI 也要区分。
-- `Task:` 写任务 ID，`git log --grep` 和 PR 守卫都靠它。
+PR 规则：
 
-### R5 不允许削弱质量门
+- 目标分支必须是 `proto/<slug>`，**不是 `main`**
+- 标题：`feat(proto): <slug>-<改了什么>`
+- 描述必须包含：
 
-禁止以下「让 CI 变绿」的操作：
+  ```
+  Task: TASK-201
+  Agent: claude-code-01
+  Prototype: member-center
+  ```
 
-- 删除或跳过测试、把断言改成恒真
-- 加 `eslint-disable` / `# noqa` / `@ts-ignore` / `pytest.skip` 来消除报错
-- 修改 `.github/**`、`scripts/check_pr_contract.py`、`Makefile`
-- 跳过 git hook、改 CI 的 required checks
-- 把失败的检查标记为 `continue-on-error`
+  再加两段：
+  - 改了哪些页面 / 区块
+  - 怎么验证的（打开了哪个文件、点了哪些交互）
 
-如果门禁本身有问题，写在 PR 的「待确认」里，让人改。**不要自己拆刹车。**
+- 原型轨 PR 不合并到 `main`；`main` 只接收交付 PR
 
-### R6 不碰别人的任务
+## 6. 完成定义
 
-- 不改 `ai/tasks/` 下别人的任务文件。
-- 不删别人的分支。
-- 不 revert 别人的 PR，除非任务明确要求。
+- 改动全部在 `prototypes/<slug>/` 内
+- `make proto-check` 通过
+- 页面能在浏览器里打开，主要交互能点
+- PR 描述完整，没有「TODO 冒充实现」
+- 没有调试代码和真实数据
 
-## 同步与冲突
+## 7. 你不要做的事
 
-开工时、每次 push 前：
+- 不要改别人的原型目录
+- 不要改 `prototype.yaml` 的 `status`（除非任务明确要求你改成 `validating`）
+- 不要动 `handoff/`
+- 不要改 CI、脚本、Makefile
+- 不要为了让检查通过而删文件、改检查、跳过校验
+- 不要提交 `node_modules`、构建产物、大图
 
-```bash
-git fetch origin
-git rebase origin/<base>
-```
+## 8. 定稿之后
 
-建议一次性配置：
+交付不需要你做。人或 Planner 会把整个 `prototypes/<slug>/` 冻结到 `handoff/<slug>/v1/`，
+开发从那里拉走。你要做的只是把原型改到可交付、可评审。
 
-```bash
-git config rerere.enabled true      # 记住冲突解法，重复 rebase 时自动复用
-git config merge.conflictStyle zdiff3
-git config pull.rebase true
-```
+如果人明确让你参与交付，再按 `handoff/README.md` 做。
 
-冲突处理决策树：
+## 9. 遇到不确定
 
-1. 冲突文件在 `allowed_paths` 内 → 自己解。保留双方意图，解完跑测试。
-2. 冲突文件不在你的范围内 → **不要解**。`git rebase --abort`，在 PR 里写 `## 待确认` 并 @ 人。
-3. 冲突在 lockfile / 自动生成文件 → 不要手改，按 `docs/ai-collaboration.md` 里的方式重新生成。
-4. 连续两次 rebase 都出现大面积冲突 → 停下来。说明你和另一个 AI 的方向撞车了，先对齐再写。
-
-禁止用 `git checkout --ours` / `--theirs` 整文件覆盖来「解决」冲突——那会静默丢掉别人的改动。
-
-## 完成定义（Definition of Done）
-
-- [ ] 改动全部在 `allowed_paths` 内
-- [ ] 本地 `make check`（正式轨）或 `make proto-check`（原型轨）通过
-- [ ] PR 模板填完整：Task / Agent / 改了什么 / 怎么验证
-- [ ] 没有用 TODO 冒充实现
-- [ ] 没有密钥、token、个人路径、调试代码
-- [ ] 自检清单全部勾选
-
-## 遇到不确定
-
-- 需求不清 → PR 里列 `## 待确认`，@ owner。不要猜。
-- 需要改 `allowed_paths` → 让 Planner 开新任务，不要自己扩边界。
-- 想顺手重构相邻代码 → 写进 PR 描述，另开任务。
-- 发现别人的改动有 bug → 开 issue 或 @ 人，不要在任务分支里改。
-
-## 你不需要做的事
-
-- 不要主动升级依赖（除非任务要求）。
-- 不要重排无关文件的格式。
-- 不要新增 CI 配置、lint 规则、目录结构。
-- 不要「顺便」修 typo 造成无关 diff——它会让 review 和回滚都变难。
+- 需求不清 → PR 里列「待确认」，@ 人，不要猜
+- 需要改原型目录以外的文件 → 停下来，问人
+- 两个 AI 都在改同一页 → 停下来，先对齐
+- 不确定分支/路径 → 先跑 `python3 scripts/check_pr_contract.py`，或看 CI 报错
