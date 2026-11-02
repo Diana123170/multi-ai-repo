@@ -1,0 +1,14 @@
+id: TASK-103
+title: 第一个正式任务
+track: formal
+agent: claude-code-01
+base: main
+branch: feat/TASK-103
+allowed_paths:
+  - apps/checkout/**
+forbidden_paths: []
+allow_protected: false
+acceptance:
+  - make check 通过
+notes: |
+  第一个示例任务，用来验证 PR 检查是否生效。
