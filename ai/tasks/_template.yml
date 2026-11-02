@@ -1,0 +1,41 @@
+# 任务契约模板。复制成 ai/tasks/<TASK-ID>.yml 后填写。
+# 所有字段都会被 scripts/check_pr_contract.py 读取，写错会直接导致 PR 被拒。
+
+id: TASK-000
+title: 一句话说明这个任务要交付什么
+
+# formal = 正式轨（改 apps/packages/services），prototype = 原型轨（只改 prototypes/<slug>）
+track: formal
+
+# 执行这个任务的 AI 标识，和 PR 里的 Agent: 行保持一致
+agent: claude-code-01
+
+# 分支从哪切
+base: main
+
+# 任务分支名；正式轨 PR 的 head 必须与之完全一致
+branch: feat/TASK-000
+
+# 仅 prototype 轨填写；正式轨删除这一行
+# prototype: checkout-redesign
+
+# 允许修改的路径（glob，** 跨目录，* 不跨目录）。空着 = 什么都不能改
+allowed_paths:
+  - apps/example/**
+
+# 明确禁止的路径，优先级高于 allowed_paths
+forbidden_paths: []
+
+# 只有 Planner 任务才设为 true；Worker 任务保持 false
+allow_protected: false
+
+# 可选：覆盖 policy.yml 里的行数上限
+# max_changed_lines: 400
+
+# 验收标准，Reviewer 和 AI 自检都对照它
+acceptance:
+  - make check 通过
+  - 新增行为有对应测试
+
+notes: |
+  背景、约束、相关链接。AI 会读这一段。

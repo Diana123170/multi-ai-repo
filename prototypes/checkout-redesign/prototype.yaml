@@ -1,0 +1,14 @@
+# 示例原型，可以删掉
+name: checkout-redesign
+title: 结算页改版：两版布局并行验证
+status: designing
+owner: alice
+agents:
+  - codex-02
+  - claude-code-01
+created: 2026-11-02
+expires: 2026-12-02
+target: apps/checkout
+notes: |
+  验证「单页结算」和「分步结算」哪个转化更好。
+  只做静态布局和假数据，不接真实支付。
