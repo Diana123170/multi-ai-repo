@@ -325,10 +325,12 @@ def check_prototype(
             "已转正的原型请走正式轨任务；已归档的原型请先重新激活。"
         )
 
-    expected_prefix = f"{proto_prefix}{slug}/"
+    task_prefix = policy["branches"].get("prototype_task_prefix", "ptask/")
+    expected_prefix = f"{task_prefix}{slug}/"
     if not head.startswith(expected_prefix):
         report.error(
-            f"原型轨分支必须是 `{expected_prefix}<TASK-ID>`，当前是 `{head}`。"
+            f"原型轨任务分支必须是 `{expected_prefix}<TASK-ID>`，当前是 `{head}`。"
+            "（不能写成 proto/<slug>/<TASK-ID>：Git 不允许分支名既是分支又是目录。）"
         )
 
     if not manifest.get("target"):
