@@ -1,0 +1,21 @@
+# 复制到 handoff/<slug>/handoff.yaml 后填写。
+prototype: your-prototype
+version: 1
+
+# 入口页（相对 v1/ 的路径），没有固定入口就留空
+entry: 首页.html
+
+# in-development | ready-for-qa | released | on-hold
+status: in-development
+
+approved_by: reviewer-name
+approved_at: 2026-01-01
+delivered_at: 2026-01-02
+
+# 接手开发的负责人，以及代码所在位置
+dev_owner: developer-name
+dev_repo: github.com/your-org/your-product
+epic: https://github.com/your-org/your-product/issues/123
+
+notes: |
+  实现时的注意事项、和原型的已知差异、验收标准。

@@ -1,23 +1,13 @@
-# 三个占位 target 是模板里最需要你先改的地方。
-# CI 的 light / full 两个 job 分别调用 proto-check 和 check。
+# 本仓库只放单文件 HTML 原型；正式开发在开发团队那边进行。
+# 原型检查不依赖 npm，CI 直接用 Python 标准库跑。
+#
+# 以后如果正式代码也放进本仓库，在 check 里接上 lint / test / build。
 
-.PHONY: check proto-check lint test contract
+.PHONY: check proto-check
 
-## 正式轨：CI 的 full job 会跑这个
-check: lint test
+## 正式轨：交付 PR 也跑同一套基础检查
+check: proto-check
 
-## 原型轨：CI 的 light job 会跑这个，保持轻量
-proto-check: lint
-	@echo "[proto] TODO: 换成原型的最小校验（构建 / 冒烟），不要跑全量测试"
-
-## TODO: 换成真实命令，例如 `npx eslint .` / `ruff check .`
-lint:
-	@echo "[lint] TODO: 尚未配置 lint 命令"
-
-## TODO: 换成真实命令，例如 `npm test` / `pytest -q`
-test:
-	@echo "[test] TODO: 尚未配置测试命令"
-
-## 本地预演 PR 守卫
-contract:
-	python3 scripts/check_pr_contract.py
+## 原型轨：检查所有 prototypes/*/index.html
+proto-check:
+	python3 scripts/check_prototypes.py
