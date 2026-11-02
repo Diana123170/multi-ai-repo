@@ -1,0 +1,90 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, "proto/**"]
+  merge_group:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    name: detect-scope
+    runs-on: ubuntu-latest
+    outputs:
+      scope: ${{ steps.detect.outputs.scope }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
+            echo "scope=formal" >> "$out"
+            exit 0
+          fi
+
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if [[ "$GITHUB_REF_NAME" == proto/* ]]; then
+              echo "scope=prototype" >> "$out"
+            else
+              echo "scope=formal" >> "$out"
+            fi
+            exit 0
+          fi
+
+          git fetch --no-tags --quiet origin \
+            "+refs/heads/${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" || true
+          base="origin/${GITHUB_BASE_REF}"
+          git rev-parse --verify --quiet "$base" >/dev/null || base="${GITHUB_BASE_REF}"
+
+          files="$(git diff --name-only --no-renames "${base}...HEAD")"
+          if [[ -z "$files" ]] || echo "$files" | grep -qvE '^prototypes/'; then
+            echo "scope=formal" >> "$out"
+          else
+            echo "scope=prototype" >> "$out"
+          fi
+
+  light:
+    name: light
+    needs: scope
+    if: needs.scope.outputs.scope == 'prototype'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make proto-check
+
+  full:
+    name: full
+    needs: scope
+    if: needs.scope.outputs.scope == 'formal'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make check
+
+  ci:
+    name: ci
+    needs: [scope, light, full]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate required checks
+        run: |
+          set -e
+          test "${{ needs.scope.result }}" = "success"
+          test "${{ needs.light.result }}" != "failure"
+          test "${{ needs.full.result }}" != "failure"
+          test "${{ needs.light.result }}" != "cancelled"
+          test "${{ needs.full.result }}" != "cancelled"
+          echo "scope=${{ needs.scope.outputs.scope }} light=${{ needs.light.result }} full=${{ needs.full.result }}"
