@@ -1,0 +1,14 @@
+id: TASK-104
+title: 第二个示例任务
+track: formal
+agent: claude-code-01
+base: main
+branch: feat/TASK-104
+allowed_paths:
+  - apps/checkout/**
+forbidden_paths: []
+allow_protected: false
+acceptance:
+  - make check 通过
+notes: |
+  用来验证 pr-guard 与分支保护是否生效。
