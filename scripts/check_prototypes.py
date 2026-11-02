@@ -3,13 +3,12 @@
 
 只依赖 Python 标准库，CI 里直接跑，不需要 npm / pip install。
 
-检查项：
-- 每个原型目录必须有 index.html
-- HTML 有 doctype、html/head/body/title
-- 文件不能是空壳（至少 500 字符）
-- prototype.yaml 的 status 合法
-
-React / antd 引用只给警告，不阻断。
+规则：
+- 每个原型目录必须有 prototype.yaml，status 合法
+- status = designing 时，可以还没有 index.html（只警告）
+- status = validating / approved / delivered 时，必须有 index.html
+- index.html 要有 doctype、html/head/body/title，且不能是空壳
+- React / antd 引用只给警告，不阻断
 """
 from __future__ import annotations
 
@@ -19,6 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_STATUS = {"designing", "validating", "approved", "delivered", "archived"}
+HTML_REQUIRED_STATUS = {"validating", "approved", "delivered"}
 
 
 def read_status(manifest: Path) -> str | None:
@@ -66,18 +66,25 @@ def main() -> int:
 
     failed = False
     for directory in dirs:
-        index = directory / "index.html"
-        if not index.exists():
-            print(f"❌ {directory.name}: 缺少 index.html")
-            failed = True
-            continue
-
-        errors, warnings = check_html(index)
         status = read_status(directory / "prototype.yaml")
+        index = directory / "index.html"
+        errors: list[str] = []
+        warnings: list[str] = []
+
         if status is None:
             errors.append("缺少 prototype.yaml，或其中没有 status")
         elif status not in ALLOWED_STATUS:
             errors.append(f"status 不合法：{status}")
+
+        if not index.exists():
+            if status == "designing":
+                warnings.append("还没有 index.html（designing 阶段允许）")
+            else:
+                errors.append("缺少 index.html")
+        else:
+            html_errors, html_warnings = check_html(index)
+            errors.extend(html_errors)
+            warnings.extend(html_warnings)
 
         if errors:
             failed = True
