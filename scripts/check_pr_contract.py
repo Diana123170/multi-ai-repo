@@ -126,7 +126,9 @@ def changed_files(root: Path, base: str, head: str) -> list[str] | None:
         "--name-only",
         "--no-renames",
         "--diff-filter=ACMRD",
-        f"{ref}...{head}",
+        # 用 HEAD 而不是分支名：Actions 的 checkout 是 detached HEAD，
+        # 本地并不存在 PR 头分支的 ref，用分支名会直接 exit 128。
+        f"{ref}...HEAD",
     )
     return [line for line in out.splitlines() if line]
 
@@ -143,7 +145,7 @@ def changed_line_count(root: Path, base: str, head: str) -> int | None:
     ref = resolve_base(root, base)
     if ref is None:
         return None
-    out = run_git(root, "diff", "--numstat", "--no-renames", f"{ref}...{head}")
+    out = run_git(root, "diff", "--numstat", "--no-renames", f"{ref}...HEAD")
     total = 0
     for line in out.splitlines():
         parts = line.split("\t")
