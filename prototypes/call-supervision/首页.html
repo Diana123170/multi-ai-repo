@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>实时沟通步骤督导 · V1 原型</title>
+  <link rel="stylesheet" href="https://unpkg.com/antd@4.24.15/dist/antd.min.css" />
+  <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/antd@4.24.15/dist/antd.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f0f2f5; }
+    .app { min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .topbar { height: 56px; background: #001529; display: flex; align-items: center; padding: 0 28px; gap: 28px; }
+    .brand { color: #fff; font-size: 16px; font-weight: 600; letter-spacing: .5px; white-space: nowrap; }
+    .nav { display: flex; gap: 4px; }
+    .nav button { background: transparent; border: 0; color: rgba(255,255,255,.65); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .nav button:hover { color: #fff; background: rgba(255,255,255,.08); }
+    .nav button.active { color: #fff; background: #1890ff; }
+    .spacer { flex: 1; }
+    .content { max-width: 1280px; margin: 0 auto; padding: 20px; }
+    .page-title { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+    .page-sub { color: #8c8c8c; font-size: 13px; margin-bottom: 16px; }
+    .live-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
+    .live-head { display: flex; align-items: center; justify-content: space-between; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #52c41a; display: inline-block; margin-right: 6px; animation: pulse 1.4s infinite; }
+    @keyframes pulse { 0% { opacity: 1 } 50% { opacity: .3 } 100% { opacity: 1 } }
+    .step-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+    .step-row:last-child { border-bottom: 0; }
+    .step-index { width: 22px; height: 22px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .step-main { flex: 1; min-width: 0; }
+    .step-name { font-size: 14px; font-weight: 500; }
+    .step-req { font-size: 12px; color: #8c8c8c; margin-top: 2px; }
+    .quote { background: #fafafa; border-left: 3px solid #1890ff; padding: 10px 12px; border-radius: 4px; font-size: 13px; line-height: 1.7; }
+    .muted { color: #8c8c8c; font-size: 12px; }
+    .ant-card { border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const {
+      Card, Table, Tag, Button, Space, Typography, Input, Select, Switch,
+      Modal, Radio, Descriptions, Drawer, Alert, Divider, message, Popconfirm,
+      Badge, Progress, Row, Col,
+    } = antd;
+    const { Title, Text, Paragraph } = Typography;
+
+    const TYPE = {
+      behavior: { label: "行为执行型", color: "blue" },
+      info: { label: "信息确认型", color: "purple" },
+      notice: { label: "业务告知型", color: "cyan" },
+    };
+    const TYPE_DESC = {
+      behavior: "识别对象：员工。必须识别到员工主动执行了符合步骤要求的沟通行为；客户主动提供信息不能代替员工执行。",
+      info: "识别对象：客户和员工。通话中获得明确、有效的信息即可；模糊表达、推测信息不能判定完成。",
+      notice: "识别对象：员工。必须识别到员工向客户传达了指定业务内容；客户主动提及不能判定员工完成告知。",
+    };
+    const STATUS = {
+      done: { label: "已完成", color: "green" },
+      pending: { label: "未完成", color: "red" },
+      na: { label: "不适用", color: "orange" },
+    };
+    const LIVE_STATUS = {
+      done: { label: "已完成", color: "green" },
+      pending: { label: "待完成", color: "default" },
+      na: { label: "不适用", color: "orange" },
+    };
+
+    const RULE_STEPS = [
+      { id: "s1", name: "主动问候客户", type: "behavior", requirement: "自报家门并确认对方身份", required: true, remind: false, reminder: "" },
+      { id: "s2", name: "了解客户购车需求", type: "behavior", requirement: "主动询问客户购车用途、主要关注点或实际需求", required: true, remind: true, reminder: "当前尚未了解客户购车需求，请适时了解客户的实际用车场景。" },
+      { id: "s3", name: "确认意向车型", type: "info", requirement: "获取客户明确关注的车型或级别", required: true, remind: false, reminder: "" },
+      { id: "s4", name: "了解购车预算", type: "info", requirement: "获取客户明确的购车预算金额或范围", required: true, remind: true, reminder: "当前尚未确认客户购车预算，可适时了解客户的预算范围。" },
+      { id: "s5", name: "介绍车辆续航优势", type: "notice", requirement: "向客户介绍车辆续航能力或相关优势", required: false, remind: false, reminder: "" },
+      { id: "s6", name: "邀约客户到店", type: "behavior", requirement: "提出到店看车或试驾的具体邀约", required: true, remind: true, reminder: "当前尚未邀约客户到店，可结合客户关注点提出到店体验。" },
+    ];
+    const RULE_MAP = Object.fromEntries(RULE_STEPS.map((s) => [s.name, s]));
+
+    const RULES = [
+      { id: "R-1001", name: "新车销售通话", teams: ["销售一部", "销售二部"], employees: [], enabled: true, updated: "2026-11-02 14:20", steps: RULE_STEPS },
+      { id: "R-1002", name: "续保回访", teams: ["续保组"], employees: ["王敏"], enabled: true, updated: "2026-10-28 09:15", steps: RULE_STEPS.slice(0, 4) },
+      { id: "R-1003", name: "试驾邀约", teams: ["销售一部"], employees: [], enabled: false, updated: "2026-10-20 16:40", steps: RULE_STEPS.slice(0, 3) },
+    ];
+
+    const RECORDS = [
+      {
+        id: "C-20261103-001", time: "2026-11-03 09:01:12", employee: "李婷", team: "销售一部",
+        customer: "张先生 138****2210", rule: "新车销售通话", version: "v3", duration: "08:42", reminders: 1,
+        steps: [
+          { name: "主动问候客户", type: "behavior", status: "done", at: "09:01:18", reminders: 0, evidence: { speaker: "员工", quote: "您好，我是云客汽车的李婷，请问是张先生吗？", time: "00:06" } },
+          { name: "了解客户购车需求", type: "behavior", status: "done", at: "09:02:35", reminders: 0, evidence: { speaker: "员工", quote: "您买车主要是上下班代步，还是家庭使用？", time: "01:23" } },
+          { name: "确认意向车型", type: "info", status: "done", at: "09:03:20", reminders: 0, evidence: { speaker: "客户", quote: "我想看一款中型 SUV。", time: "02:08" } },
+          { name: "了解购车预算", type: "info", status: "pending", at: null, reminders: 1, reminder: { content: "当前尚未确认客户购车预算，可适时了解客户的预算范围。", time: "09:05:10" } },
+          { name: "介绍车辆续航优势", type: "notice", status: "done", at: "09:05:21", reminders: 0, evidence: { speaker: "员工", quote: "这款车 CLTC 续航 620 公里，日常通勤一周充一次就够。", time: "04:09" } },
+          { name: "邀约客户到店", type: "behavior", status: "pending", at: null, reminders: 0 },
+        ],
+      },
+      {
+        id: "C-20261103-002", time: "2026-11-03 10:12:40", employee: "陈浩", team: "销售二部",
+        customer: "王女士 139****8821", rule: "新车销售通话", version: "v3", duration: "06:18", reminders: 0,
+        steps: [
+          { name: "主动问候客户", type: "behavior", status: "done", at: "10:12:46", reminders: 0, evidence: { speaker: "员工", quote: "您好，我是云客汽车的陈浩。", time: "00:05" } },
+          { name: "了解客户购车需求", type: "behavior", status: "done", at: "10:14:02", reminders: 0, evidence: { speaker: "员工", quote: "您平时主要在城市开还是经常跑长途？", time: "01:22" } },
+          { name: "确认意向车型", type: "info", status: "done", at: "10:15:10", reminders: 0, evidence: { speaker: "客户", quote: "想看看新能源轿车。", time: "02:30" } },
+          { name: "了解购车预算", type: "info", status: "done", at: "10:16:02", reminders: 0, evidence: { speaker: "客户", quote: "预算 18 万左右。", time: "03:22" } },
+          { name: "介绍车辆续航优势", type: "notice", status: "done", at: "10:17:15", reminders: 0, evidence: { speaker: "员工", quote: "这款车续航 600 公里，支持快充。", time: "04:35" } },
+          { name: "邀约客户到店", type: "behavior", status: "done", at: "10:18:30", reminders: 0, evidence: { speaker: "员工", quote: "这周六方便到店试驾吗？", time: "05:50" } },
+        ],
+      },
+      {
+        id: "C-20261102-018", time: "2026-11-02 16:30:05", employee: "赵敏", team: "续保组",
+        customer: "刘先生 137****6630", rule: "续保回访", version: "v1", duration: "03:12", reminders: 1,
+        steps: [
+          { name: "主动问候客户", type: "behavior", status: "done", at: "16:30:10", reminders: 0, evidence: { speaker: "员工", quote: "刘先生您好，我是云客续保的赵敏。", time: "00:05" } },
+          { name: "确认保单到期时间", type: "info", status: "done", at: "16:31:02", reminders: 0, evidence: { speaker: "客户", quote: "下个月 15 号到期。", time: "00:57" } },
+          { name: "了解续保预算", type: "info", status: "pending", at: null, reminders: 1, reminder: { content: "当前尚未确认客户续保预算，可适时了解客户的心理价位。", time: "16:32:10" } },
+          { name: "邀约到店续保", type: "behavior", status: "pending", at: null, reminders: 0 },
+        ],
+      },
+    ];
+
+    const VIEWS = [["live", "实时督导"], ["rules", "督导规则"], ["records", "督导记录"]];
+
+    function App() {
+      const [view, setView] = useState("live");
+      const [rules, setRules] = useState(RULES);
+      const [editing, setEditing] = useState(null);
+      const [detail, setDetail] = useState(null);
+
+      const go = (key) => { setEditing(null); setDetail(null); setView(key); };
+      const saveRule = (rule) => {
+        setRules((list) => list.some((r) => r.id === rule.id) ? list.map((r) => r.id === rule.id ? rule : r) : [rule, ...list]);
+        setEditing(null);
+        message.success("规则已保存（原型演示）");
+      };
+
+      return (
+        <div className="app">
+          <div className="topbar">
+            <div className="brand">云客 · 实时沟通步骤督导</div>
+            <div className="nav">
+              {VIEWS.map(([key, label]) => (
+                <button key={key} className={view === key ? "active" : ""} onClick={() => go(key)}>{label}</button>
+              ))}
+            </div>
+            <div className="spacer" />
+            <Tag color="blue">V1 原型</Tag>
+          </div>
+          <div className="content">
+            {editing ? (
+              <RuleEditor rule={editing} onSave={saveRule} onCancel={() => setEditing(null)} />
+            ) : detail ? (
+              <RecordDetail record={detail} onBack={() => setDetail(null)} />
+            ) : view === "live" ? (
+              <LivePanel />
+            ) : view === "rules" ? (
+              <RuleList rules={rules} onEdit={setEditing} onNew={() => setEditing("new")} onToggle={(r) => setRules((list) => list.map((x) => x.id === r.id ? { ...x, enabled: !x.enabled } : x))} onCopy={(r) => setRules((list) => [{ ...r, id: "R-" + Date.now(), name: r.name + "（副本）", enabled: false, updated: "2026-11-03 10:00" }, ...list])} onDelete={(r) => setRules((list) => list.filter((x) => x.id !== r.id))} />
+            ) : (
+              <RecordList onOpen={setDetail} />
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function LivePanel() {
+      const steps = [
+        { name: "主动问候客户", type: "behavior", doneAt: 0 },
+        { name: "了解客户购车需求", type: "behavior", doneAt: 2 },
+        { name: "确认意向车型", type: "info", doneAt: 4 },
+        { name: "了解购车预算", type: "info", doneAt: 999, remindAt: 6 },
+        { name: "介绍车辆续航优势", type: "notice", doneAt: 8 },
+        { name: "邀约客户到店", type: "behavior", doneAt: 999 },
+      ];
+      const [tick, setTick] = useState(0);
+      const [playing, setPlaying] = useState(true);
+      useEffect(() => {
+        if (!playing) return;
+        const id = setInterval(() => setTick((t) => t + 1), 1000);
+        return () => clearInterval(id);
+      }, [playing]);
+      const done = (s) => tick >= s.doneAt;
+      const reminder = steps.find((s) => s.remindAt && tick >= s.remindAt && !done(s));
+      const doneCount = steps.filter(done).length;
+
+      return (
+        <>
+          <div className="page-title">实时督导</div>
+          <div className="page-sub">员工通话工作台中的步骤督导面板。状态由系统自动更新，员工不能手动勾选。</div>
+          <div className="live-grid">
+            <Card size="small" title={<span><span className="live-dot" />通话中 · 新车销售通话 v3</span>} extra={<Space><Text type="secondary">坐席：李婷</Text><Button size="small" onClick={() => setPlaying((p) => !p)}>{playing ? "暂停" : "继续"}</Button></Space>}>
+              <Row gutter={16} style={{ marginBottom: 12 }}>
+                <Col span={8}><Text type="secondary">客户</Text><div>张先生 138****2210</div></Col>
+                <Col span={8}><Text type="secondary">通话时长</Text><div>{String(Math.floor((312 + tick) / 60)).padStart(2, "0")}:{String((312 + tick) % 60).padStart(2, "0")}</div></Col>
+                <Col span={8}><Text type="secondary">步骤完成</Text><div>{doneCount} / {steps.length}</div></Col>
+              </Row>
+              <Divider style={{ margin: "8px 0" }} />
+              {steps.map((s, i) => {
+                const ok = done(s);
+                return (
+                  <div className="step-row" key={s.name}>
+                    <div className="step-index" style={{ background: ok ? "#f6ffed" : "#fafafa", color: ok ? "#52c41a" : "#bfbfbf" }}>{ok ? "✓" : i + 1}</div>
+                    <div className="step-main">
+                      <div className="step-name">{s.name}</div>
+                      <div className="step-req">{RULE_MAP[s.name] ? RULE_MAP[s.name].requirement : ""}</div>
+                    </div>
+                    <Space>
+                      <Tag color={TYPE[s.type].color}>{TYPE[s.type].label}</Tag>
+                      <Tag color={ok ? "green" : "default"}>{ok ? "已完成" : "待完成"}</Tag>
+                    </Space>
+                  </div>
+                );
+              })}
+            </Card>
+            <div>
+              <Card size="small" title="步骤提醒" style={{ marginBottom: 16 }}>
+                {reminder ? (
+                  <Alert type="warning" showIcon message="当前步骤尚未完成" description={reminder.name === "了解购车预算" ? "当前尚未确认客户购车预算，可适时了解客户的预算范围。" : RULE_MAP[reminder.name]?.reminder || "请适时完成该步骤。"} />
+                ) : (
+                  <Alert type="success" showIcon message="暂无需要提醒的步骤" description="相关沟通话题出现且员工尚未完成必做步骤时，才会触发提醒。" />
+                )}
+                <div className="muted" style={{ marginTop: 10 }}>同一步骤同一通电话最多提醒一次；完成后提醒自动结束。</div>
+              </Card>
+              <Card size="small" title="通话状态">
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="当前规则">新车销售通话 v3</Descriptions.Item>
+                  <Descriptions.Item label="匹配方式">团队规则（销售一部）</Descriptions.Item>
+                  <Descriptions.Item label="已提醒">1 次</Descriptions.Item>
+                  <Descriptions.Item label="规则快照">通话开始时锁定，通话中修改不影响本通</Descriptions.Item>
+                </Descriptions>
+              </Card>
+              <Button block style={{ marginTop: 16 }} onClick={() => { setTick(0); setPlaying(true); }}>重新演示</Button>
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    function RuleList({ rules, onEdit, onNew, onToggle, onCopy, onDelete }) {
+      const columns = [
+        { title: "规则名称", dataIndex: "name", render: (t, r) => <a onClick={() => onEdit(r)}>{t}</a> },
+        { title: "适用范围", render: (_, r) => [...r.teams, ...r.employees].join("、") || "—" },
+        { title: "步骤数量", render: (_, r) => r.steps.length },
+        { title: "必做步骤", render: (_, r) => r.steps.filter((s) => s.required).length },
+        { title: "规则状态", render: (_, r) => <Switch checked={r.enabled} onChange={() => onToggle(r)} checkedChildren="启用" unCheckedChildren="停用" /> },
+        { title: "更新时间", dataIndex: "updated" },
+        { title: "操作", render: (_, r) => <Space><a onClick={() => onEdit(r)}>编辑</a><a onClick={() => onCopy(r)}>复制</a><Popconfirm title="删除规则？历史督导记录不受影响。" onConfirm={() => onDelete(r)}><a>删除</a></Popconfirm></Space> },
+      ];
+      return (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div><div className="page-title">督导规则</div><div className="page-sub">配置通话场景、适用范围和沟通步骤。一通电话只匹配一套规则。</div></div>
+            <Button type="primary" onClick={onNew}>新建规则</Button>
+          </div>
+          <Card size="small"><Table rowKey="id" columns={columns} dataSource={rules} pagination={false} size="middle" /></Card>
+        </>
+      );
+    }
+
+    function RuleEditor({ rule, onSave, onCancel }) {
+      const isNew = rule === "new";
+      const source = isNew ? { name: "", teams: [], employees: [], enabled: false, steps: [], updated: "—" } : rule;
+      const [name, setName] = useState(source.name);
+      const [teams, setTeams] = useState(source.teams);
+      const [employees, setEmployees] = useState(source.employees);
+      const [enabled, setEnabled] = useState(source.enabled);
+      const [steps, setSteps] = useState(source.steps);
+      const [modal, setModal] = useState(null);
+
+      const saveStep = (data) => {
+        setSteps((list) => modal.index === -1 ? [...list, data] : list.map((s, i) => i === modal.index ? data : s));
+        setModal(null);
+      };
+      const move = (index, dir) => {
+        const next = index + dir;
+        if (next < 0 || next >= steps.length) return;
+        const copy = [...steps];
+        [copy[index], copy[next]] = [copy[next], copy[index]];
+        setSteps(copy);
+      };
+      const submit = () => {
+        if (!name.trim()) return message.warning("请填写规则名称");
+        if (!teams.length) return message.warning("请选择适用团队");
+        if (!steps.length) return message.warning("至少配置一个步骤");
+        onSave({ ...source, id: isNew ? "R-" + Date.now() : source.id, name, teams, employees, enabled, steps, updated: "2026-11-03 10:00" });
+      };
+      const columns = [
+        { title: "步骤名称", dataIndex: "name" },
+        { title: "步骤类型", render: (_, s) => <Tag color={TYPE[s.type].color}>{TYPE[s.type].label}</Tag> },
+        { title: "步骤要求", dataIndex: "requirement", ellipsis: true },
+        { title: "必做", render: (_, s) => s.required ? <Tag color="red">必做</Tag> : <Tag>非必做</Tag> },
+        { title: "提醒", render: (_, s) => s.remind ? <Tag color="orange">已开启</Tag> : <Tag>未开启</Tag> },
+        { title: "操作", render: (_, s, i) => <Space><a onClick={() => move(i, -1)}>上移</a><a onClick={() => move(i, 1)}>下移</a><a onClick={() => setModal({ index: i, data: s })}>编辑</a><a onClick={() => setSteps(steps.filter((_, x) => x !== i))}>删除</a></Space> },
+      ];
+
+      return (
+        <>
+          <Space style={{ marginBottom: 12 }}><Button onClick={onCancel}>← 返回列表</Button><Text type="secondary">{isNew ? "新建规则" : "编辑规则"}</Text></Space>
+          <Card size="small" title="基础信息" style={{ marginBottom: 16 }}>
+            <Row gutter={16}>
+              <Col span={12}><div className="muted">规则名称 *</div><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：新车销售通话" /></Col>
+              <Col span={12}><div className="muted">规则状态</div><Switch checked={enabled} onChange={setEnabled} checkedChildren="启用" unCheckedChildren="停用" /></Col>
+              <Col span={12} style={{ marginTop: 12 }}><div className="muted">适用团队 *</div><Select mode="multiple" style={{ width: "100%" }} value={teams} onChange={setTeams} placeholder="选择一个或多个团队" options={["销售一部", "销售二部", "续保组"].map((v) => ({ value: v, label: v }))} /></Col>
+              <Col span={12} style={{ marginTop: 12 }}><div className="muted">适用员工（可选）</div><Select mode="multiple" style={{ width: "100%" }} value={employees} onChange={setEmployees} placeholder="不指定则适用团队全部员工" options={["李婷", "陈浩", "赵敏", "王敏"].map((v) => ({ value: v, label: v }))} /></Col>
+            </Row>
+            <Alert style={{ marginTop: 12 }} type="info" showIcon message="适用逻辑" description="优先匹配员工直接指定的规则，其次匹配团队规则；同一员工同一层级只能有一条启用中的规则。" />
+          </Card>
+          <Card size="small" title={`步骤配置（${steps.length}）`} extra={<Button type="primary" size="small" onClick={() => setModal({ index: -1, data: null })}>新增步骤</Button>} style={{ marginBottom: 16 }}>
+            <Table rowKey={(s) => s.id} columns={columns} dataSource={steps} pagination={false} size="middle" locale={{ emptyText: "还没有步骤，点右上角新增" }} />
+          </Card>
+          <Space><Button type="primary" onClick={submit}>保存规则</Button><Button onClick={onCancel}>取消</Button></Space>
+          {modal && <StepModal data={modal.data} onSave={saveStep} onCancel={() => setModal(null)} />}
+        </>
+      );
+    }
+
+    function StepModal({ data, onSave, onCancel }) {
+      const [name, setName] = useState(data?.name || "");
+      const [type, setType] = useState(data?.type || "behavior");
+      const [requirement, setRequirement] = useState(data?.requirement || "");
+      const [required, setRequired] = useState(data?.required ?? true);
+      const [remind, setRemind] = useState(data?.remind ?? true);
+      const [reminder, setReminder] = useState(data?.reminder || "");
+      const submit = () => {
+        if (!name.trim() || !requirement.trim()) return message.warning("步骤名称和步骤要求必填");
+        if (required && remind && !reminder.trim()) return message.warning("开启提醒时必须填写提醒内容");
+        onSave({ id: data?.id || "s" + Date.now(), name, type, requirement, required, remind: required && remind, reminder });
+      };
+      return (
+        <Modal title={data ? "编辑步骤" : "新增步骤"} visible onOk={submit} onCancel={onCancel} okText="保存" cancelText="取消" width={560}>
+          <div className="muted">步骤名称 *</div>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="例如：了解客户购车预算" />
+          <div className="muted" style={{ marginTop: 12 }}>步骤类型 *</div>
+          <Radio.Group value={type} onChange={(e) => setType(e.target.value)}>
+            <Radio.Button value="behavior">行为执行型</Radio.Button>
+            <Radio.Button value="info">信息确认型</Radio.Button>
+            <Radio.Button value="notice">业务告知型</Radio.Button>
+          </Radio.Group>
+          <Alert style={{ marginTop: 8 }} type="info" message={TYPE[type].label} description={TYPE_DESC[type]} />
+          <div className="muted" style={{ marginTop: 12 }}>步骤要求 *</div>
+          <Input.TextArea rows={3} value={requirement} onChange={(e) => setRequirement(e.target.value)} placeholder="描述员工需要完成的具体事项，不需要配置关键词" />
+          <Space style={{ marginTop: 12 }}>
+            <span className="muted">是否必做</span><Switch checked={required} onChange={setRequired} />
+            <span className="muted" style={{ marginLeft: 16 }}>是否提醒</span><Switch checked={remind} disabled={!required} onChange={setRemind} />
+          </Space>
+          {required && remind && (
+            <>
+              <div className="muted" style={{ marginTop: 12 }}>提醒内容 *</div>
+              <Input.TextArea rows={2} value={reminder} onChange={(e) => setReminder(e.target.value)} placeholder="例如：当前尚未确认客户购车预算，可适时了解客户的预算范围。" />
+              <div className="muted" style={{ marginTop: 4 }}>提醒内容是步骤执行提示，不是话术建议。</div>
+            </>
+          )}
+        </Modal>
+      );
+    }
+
+    function RecordList({ onOpen }) {
+      const [employee, setEmployee] = useState("");
+      const [result, setResult] = useState("all");
+      const [rule, setRule] = useState("all");
+      const rows = RECORDS.filter((r) =>
+        (!employee || r.employee.includes(employee)) &&
+        (result === "all" || (result === "done" ? r.steps.every((s) => s.status === "done") : r.steps.some((s) => s.status !== "done"))) &&
+        (rule === "all" || r.rule === rule)
+      );
+      const columns = [
+        { title: "通话时间", dataIndex: "time" },
+        { title: "员工", dataIndex: "employee" },
+        { title: "团队", dataIndex: "team" },
+        { title: "客户", dataIndex: "customer" },
+        { title: "督导规则", render: (_, r) => `${r.rule} ${r.version}` },
+        { title: "步骤完成", render: (_, r) => `${r.steps.filter((s) => s.status === "done").length} / ${r.steps.length}` },
+        { title: "未完成", render: (_, r) => { const n = r.steps.filter((s) => s.status !== "done").length; return n ? <Text type="danger">{n}</Text> : "0"; } },
+        { title: "提醒次数", dataIndex: "reminders" },
+        { title: "通话时长", dataIndex: "duration" },
+        { title: "操作", render: (_, r) => <a onClick={() => onOpen(r)}>查看详情</a> },
+      ];
+      return (
+        <>
+          <div className="page-title">督导记录</div>
+          <div className="page-sub">一通电话一条记录。只展示已经结束并生成督导记录的通话。</div>
+          <Card size="small" style={{ marginBottom: 16 }}>
+            <Space wrap>
+              <Input placeholder="员工姓名" value={employee} onChange={(e) => setEmployee(e.target.value)} style={{ width: 160 }} allowClear />
+              <Select value={rule} onChange={setRule} style={{ width: 180 }} options={[{ value: "all", label: "全部规则" }, ...["新车销售通话", "续保回访", "试驾邀约"].map((v) => ({ value: v, label: v }))]} />
+              <Select value={result} onChange={setResult} style={{ width: 180 }} options={[{ value: "all", label: "全部结果" }, { value: "done", label: "全部完成" }, { value: "partial", label: "存在未完成步骤" }]} />
+            </Space>
+          </Card>
+          <Card size="small"><Table rowKey="id" columns={columns} dataSource={rows} pagination={false} size="middle" /></Card>
+        </>
+      );
+    }
+
+    function RecordDetail({ record, onBack }) {
+      const [current, setCurrent] = useState(null);
+      const completed = record.steps.filter((s) => s.status === "done").length;
+      const columns = [
+        { title: "步骤名称", dataIndex: "name" },
+        { title: "类型", render: (_, s) => <Tag color={TYPE[s.type].color}>{TYPE[s.type].label}</Tag> },
+        { title: "执行状态", render: (_, s) => <Tag color={STATUS[s.status].color}>{STATUS[s.status].label}</Tag> },
+        { title: "完成时间", render: (_, s) => s.at || "—" },
+        { title: "提醒次数", dataIndex: "reminders" },
+        { title: "操作", render: (_, s) => <a onClick={() => setCurrent(s)}>识别详情</a> },
+      ];
+      const def = current ? RULE_MAP[current.name] || {} : {};
+      return (
+        <>
+          <Space style={{ marginBottom: 12 }}><Button onClick={onBack}>← 返回列表</Button><Text type="secondary">{record.id}</Text></Space>
+          <Card size="small" title="通话基本信息" style={{ marginBottom: 16 }}>
+            <Descriptions column={3} size="small">
+              <Descriptions.Item label="通话时间">{record.time}</Descriptions.Item>
+              <Descriptions.Item label="通话时长">{record.duration}</Descriptions.Item>
+              <Descriptions.Item label="员工">{record.employee}（{record.team}）</Descriptions.Item>
+              <Descriptions.Item label="客户">{record.customer}</Descriptions.Item>
+              <Descriptions.Item label="督导规则">{record.rule} {record.version}</Descriptions.Item>
+              <Descriptions.Item label="步骤完成">{completed} / {record.steps.length}</Descriptions.Item>
+              <Descriptions.Item label="未完成步骤">{record.steps.filter((s) => s.status !== "done").length}</Descriptions.Item>
+              <Descriptions.Item label="提醒次数">{record.reminders}</Descriptions.Item>
+            </Descriptions>
+          </Card>
+          <Card size="small" title="步骤执行情况">
+            <Table rowKey="name" columns={columns} dataSource={record.steps} pagination={false} size="middle" />
+          </Card>
+          <Drawer title="步骤识别详情" visible={!!current} onClose={() => setCurrent(null)} width={440}>
+            {current && (
+              <>
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="步骤名称">{current.name}</Descriptions.Item>
+                  <Descriptions.Item label="步骤类型">{TYPE[current.type].label}</Descriptions.Item>
+                  <Descriptions.Item label="步骤要求">{def.requirement || "—"}</Descriptions.Item>
+                  <Descriptions.Item label="执行状态"><Tag color={STATUS[current.status].color}>{STATUS[current.status].label}</Tag></Descriptions.Item>
+                </Descriptions>
+                {current.status === "done" && current.evidence ? (
+                  <Card size="small" title="命中证据" style={{ marginTop: 12 }}>
+                    <div className="muted">说话人：{current.evidence.speaker} · 时间：{current.evidence.time}</div>
+                    <div className="quote" style={{ marginTop: 8 }}>“{current.evidence.quote}”</div>
+                    <div className="muted" style={{ marginTop: 8 }}>点击证据可定位到通话转写和录音时间（原型未接真实录音）。</div>
+                  </Card>
+                ) : current.status === "pending" ? (
+                  <Card size="small" title="提醒记录" style={{ marginTop: 12 }}>
+                    {current.reminders ? (
+                      <>
+                        <div className="muted">提醒时间：{current.reminder?.time}</div>
+                        <div className="quote" style={{ marginTop: 8 }}>{current.reminder?.content}</div>
+                      </>
+                    ) : <Text type="secondary">该步骤未触发提醒。</Text>}
+                    <div className="muted" style={{ marginTop: 8 }}>未完成步骤不推断员工未执行的原因。</div>
+                  </Card>
+                ) : <Alert style={{ marginTop: 12 }} type="warning" showIcon message="不适用" description="仅在通话上下文有明确依据时判定。" />}
+              </>
+            )}
+          </Drawer>
+        </>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
+</body>
+</html>
