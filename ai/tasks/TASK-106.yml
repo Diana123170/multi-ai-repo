@@ -1,0 +1,14 @@
+id: TASK-106
+title: 重写 AGENTS.md 为原型协作规则
+track: formal
+agent: manual
+base: main
+branch: feat/TASK-106
+allowed_paths:
+  - AGENTS.md
+forbidden_paths: []
+allow_protected: false
+acceptance:
+  - AGENTS.md 覆盖多 HTML、中文文件名、同原型并行、handoff
+notes: |
+  把 AI 协作规则写进仓库，替代聊天里的口头约定。
