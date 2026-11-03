@@ -1,0 +1,13 @@
+name: call-supervision
+title: 通话录音实时沟通步骤督导
+status: designing
+owner: Diana123170
+agents:
+  - linc-agent
+created: 2026-11-03
+expires: 2026-12-03
+entry: 首页.html
+notes: |
+  V1：员工端实时步骤督导面板 + 管理端督导规则 / 督导记录。
+  只判断员工是否完成规定步骤，不评价沟通质量，不提供话术建议。
+  按 PRD V1 范围实现，步骤名称和 mock 数据待评审校准。
