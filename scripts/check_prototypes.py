@@ -88,7 +88,12 @@ def main() -> int:
                 errors.append("目录里没有任何 .html 文件")
 
         if entry and not (directory / entry).exists():
-            errors.append(f"entry 指向的文件不存在：{entry}")
+            if status == "designing":
+                warnings.append(
+                    f"entry 指向的文件还不存在：{entry}（designing 阶段允许稍后补）"
+                )
+            else:
+                errors.append(f"entry 指向的文件不存在：{entry}")
 
         for html in html_files:
             html_errors, html_warnings = check_html(html)
